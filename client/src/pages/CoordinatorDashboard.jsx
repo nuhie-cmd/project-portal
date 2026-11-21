@@ -1,5 +1,11 @@
+import DashboardLayout from "../components/DashboardLayout";
+
 function CoordinatorDashboard() {
-  return <h1>Coordinator Dashboard</h1>;
+  return (
+    <DashboardLayout title="Coordinator Dashboard">
+      <p>Welcome! All teams, proposals and deadlines will appear here.</p>
+    </DashboardLayout>
+  );
 }
 
 export default CoordinatorDashboard;
