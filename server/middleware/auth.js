@@ -1,47 +1,24 @@
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET || "project_portal_dev_secret_key";
-
-/**
- * Verifies the Bearer JWT token from the Authorization header
- * and attaches the decoded user payload to req.user.
- */
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Authentication required. Please log in." });
-  }
-
-  const token = authHeader.slice(7).trim();
-  if (!token) {
-    return res.status(401).json({ message: "Authentication token is missing." });
-  }
-
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Not logged in" });
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    return next();
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
   } catch {
-    return res.status(401).json({ message: "Session expired or invalid token. Please log in again." });
+    res.status(401).json({ error: "Invalid or expired token" });
   }
 }
 
-/**
- * Restricts route access to users whose role is in allowedRoles.
- */
-function authorizeRoles(...allowedRoles) {
+function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        message: "Access denied. You do not have permission to perform this action.",
-      });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: "Not allowed for your role" });
     }
-    return next();
+    next();
   };
 }
 
-module.exports = {
-  JWT_SECRET,
-  authenticateToken,
-  authorizeRoles,
-};
+module.exports = { requireAuth, requireRole };

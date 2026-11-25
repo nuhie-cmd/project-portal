@@ -1,209 +1,108 @@
 const express = require("express");
 const pool = require("../db");
-const { authenticateToken, authorizeRoles } = require("../middleware/auth");
+const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+router.use(requireAuth);
 
-async function findStudentTeam(user) {
-  const [teams] = await pool.query(
-    `SELECT t.*, g.name AS guide_name, g.email AS guide_email
-     FROM teams t
-     LEFT JOIN users g ON t.guide_id = g.id
-     WHERE t.leader_user_id = ?
-        OR LOWER(t.leader_email) = LOWER(?)
-        OR EXISTS (
-          SELECT 1 FROM team_members tm
-          WHERE tm.team_id = t.id AND LOWER(tm.member_email) = LOWER(?)
-        )
-     ORDER BY t.id DESC
-     LIMIT 1`,
-    [user.id, user.email, user.email]
-  );
+const MAX_TEAM_SIZE = 4;
 
-  if (teams.length === 0) {
-    return null;
-  }
-
-  const team = teams[0];
-  const [members] = await pool.query(
-    `SELECT id, team_id, member_name, member_usn, member_email, role_in_team, created_at
-     FROM team_members
-     WHERE team_id = ?
-     ORDER BY CASE WHEN role_in_team = 'leader' THEN 0 ELSE 1 END, id ASC`,
-    [team.id]
-  );
-
-  return { ...team, members };
-}
-
-// GET /api/teams/my - Fetch the logged-in student's team and members
-router.get("/my", authenticateToken, authorizeRoles("student"), async (req, res) => {
-  try {
-    const team = await findStudentTeam(req.user);
-    return res.json({ team });
-  } catch (err) {
-    console.error("Get my team error:", err.message);
-    return res.status(500).json({ message: "Unable to fetch team details." });
-  }
-});
-
-// POST /api/teams - Register a new team and its members
-router.post("/", authenticateToken, authorizeRoles("student"), async (req, res) => {
-  const teamName = String(req.body.teamName || req.body.team || "").trim();
-  const projectTitle = String(req.body.projectTitle || req.body.project || "").trim();
-  const leaderInput = req.body.leader || {};
-  const membersInput = Array.isArray(req.body.members) ? req.body.members : [];
-  const guideId = req.body.guideId ? Number(req.body.guideId) : null;
-
-  const leaderName = String(leaderInput.name || "").trim();
-  const leaderUsn = String(leaderInput.usn || "").trim().toUpperCase();
-  const leaderEmail = String(leaderInput.email || "").trim().toLowerCase();
-
-  if (!teamName || !projectTitle) {
-    return res.status(400).json({ message: "Team name and project title are required." });
-  }
-  if (!leaderName || !leaderUsn || !EMAIL_REGEX.test(leaderEmail)) {
-    return res.status(400).json({ message: "Valid leader name, USN, and email are required." });
-  }
-
-  const normalizedMembers = [];
-  const seenEmails = new Set([leaderEmail]);
-
-  for (let i = 0; i < membersInput.length; i += 1) {
-    const m = membersInput[i] || {};
-    const mName = String(m.name || "").trim();
-    const mUsn = String(m.usn || "").trim().toUpperCase();
-    const mEmail = String(m.email || "").trim().toLowerCase();
-
-    // Skip completely empty optional rows if any, otherwise validate every field
-    if (!mName && !mUsn && !mEmail) {
-      continue;
-    }
-    if (!mName || !mUsn || !EMAIL_REGEX.test(mEmail)) {
-      return res.status(400).json({
-        message: `Member ${i + 1} requires a valid name, USN, and email.`,
-      });
-    }
-    if (seenEmails.has(mEmail)) {
-      return res.status(400).json({
-        message: `Duplicate email found (${mEmail}). Each team member must have a unique email.`,
-      });
-    }
-    seenEmails.add(mEmail);
-    normalizedMembers.push({ name: mName, usn: mUsn, email: mEmail });
-  }
+// Student creates a team (becomes leader and first member)
+router.post("/", requireRole("student"), async (req, res) => {
+  const name = (req.body.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Team name is required" });
 
   const conn = await pool.getConnection();
   try {
-    const existingTeam = await findStudentTeam(req.user);
-    if (existingTeam) {
-      return res.status(409).json({
-        message: "You are already part of a registered team.",
-        team: existingTeam,
-      });
-    }
-
-    if (guideId) {
-      const [guideRows] = await conn.query(
-        "SELECT id FROM users WHERE id = ? AND role = 'guide'",
-        [guideId]
-      );
-      if (guideRows.length === 0) {
-        return res.status(400).json({ message: "Selected guide was not found." });
-      }
-    }
-
     await conn.beginTransaction();
-
-    const [teamResult] = await conn.query(
-      `INSERT INTO teams
-       (team_name, project_title, leader_user_id, leader_name, leader_usn, leader_email, guide_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [teamName, projectTitle, req.user.id, leaderName, leaderUsn, leaderEmail, guideId]
+    const [existing] = await conn.query(
+      "SELECT 1 FROM team_members WHERE student_id = ?",
+      [req.user.id]
     );
-
-    const teamId = teamResult.insertId;
-
-    await conn.query(
-      `INSERT INTO team_members (team_id, member_name, member_usn, member_email, role_in_team)
-       VALUES (?, ?, ?, ?, 'leader')`,
-      [teamId, leaderName, leaderUsn, leaderEmail]
-    );
-
-    for (const member of normalizedMembers) {
-      await conn.query(
-        `INSERT INTO team_members (team_id, member_name, member_usn, member_email, role_in_team)
-         VALUES (?, ?, ?, ?, 'member')`,
-        [teamId, member.name, member.usn, member.email]
-      );
+    if (existing.length) {
+      await conn.rollback();
+      return res.status(409).json({ error: "You are already in a team" });
     }
-
+    const [result] = await conn.query(
+      "INSERT INTO teams (name, leader_id) VALUES (?, ?)",
+      [name, req.user.id]
+    );
+    await conn.query(
+      "INSERT INTO team_members (team_id, student_id) VALUES (?, ?)",
+      [result.insertId, req.user.id]
+    );
     await conn.commit();
-
-    const createdTeam = await findStudentTeam(req.user);
-    return res.status(201).json({
-      message: "Team registered successfully.",
-      team: createdTeam,
-    });
+    res.status(201).json({ id: result.insertId, name });
   } catch (err) {
     await conn.rollback();
-    console.error("Create team error:", err.message);
-    return res.status(500).json({ message: "Failed to register team. Please try again." });
+    res.status(500).json({ error: "Server error" });
   } finally {
     conn.release();
   }
 });
 
-// POST /api/teams/:teamId/members - Add a member to an existing team
-router.post("/:teamId/members", authenticateToken, authorizeRoles("student"), async (req, res) => {
+// Leader adds a member by USN
+router.post("/:id/members", requireRole("student"), async (req, res) => {
+  const teamId = Number(req.params.id);
+  const usn = (req.body.usn || "").trim();
+  if (!usn) return res.status(400).json({ error: "USN is required" });
+
   try {
-    const teamId = Number(req.params.teamId);
-    const name = String(req.body.name || "").trim();
-    const usn = String(req.body.usn || "").trim().toUpperCase();
-    const email = String(req.body.email || "").trim().toLowerCase();
-
-    if (!teamId) {
-      return res.status(400).json({ message: "Invalid team ID." });
-    }
-    if (!name || !usn || !EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ message: "Valid member name, USN, and email are required." });
-    }
-
     const [teams] = await pool.query("SELECT * FROM teams WHERE id = ?", [teamId]);
-    if (teams.length === 0) {
-      return res.status(404).json({ message: "Team not found." });
-    }
-    if (teams[0].leader_user_id !== req.user.id) {
-      return res.status(403).json({ message: "Only the team leader can add team members." });
+    const team = teams[0];
+    if (!team) return res.status(404).json({ error: "Team not found" });
+    if (team.leader_id !== req.user.id) {
+      return res.status(403).json({ error: "Only the team leader can add members" });
     }
 
-    const [dup] = await pool.query(
-      "SELECT id FROM team_members WHERE team_id = ? AND LOWER(member_email) = LOWER(?)",
-      [teamId, email]
+    const [[count]] = await pool.query(
+      "SELECT COUNT(*) AS n FROM team_members WHERE team_id = ?",
+      [teamId]
     );
-    if (dup.length > 0) {
-      return res.status(409).json({ message: "This member email is already in the team." });
+    if (count.n >= MAX_TEAM_SIZE) {
+      return res.status(400).json({ error: `A team can have at most ${MAX_TEAM_SIZE} members` });
     }
+
+    const [students] = await pool.query(
+      "SELECT id, name FROM users WHERE usn = ? AND role = 'student'",
+      [usn]
+    );
+    if (!students.length) return res.status(404).json({ error: "No student with that USN" });
 
     await pool.query(
-      `INSERT INTO team_members (team_id, member_name, member_usn, member_email, role_in_team)
-       VALUES (?, ?, ?, ?, 'member')`,
-      [teamId, name, usn, email]
+      "INSERT INTO team_members (team_id, student_id) VALUES (?, ?)",
+      [teamId, students[0].id]
     );
-
-    const updatedTeam = await findStudentTeam(req.user);
-    return res.status(201).json({
-      message: "Team member added successfully.",
-      team: updatedTeam,
-    });
+    res.status(201).json({ message: `${students[0].name} added to the team` });
   } catch (err) {
-    console.error("Add member error:", err.message);
-    return res.status(500).json({ message: "Failed to add team member." });
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ error: "That student is already in a team" });
+    }
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-module.exports = {
-  router,
-  findStudentTeam,
-};
+// Student sees their own team and members
+router.get("/mine", requireRole("student"), async (req, res) => {
+  try {
+    const [teams] = await pool.query(
+      `SELECT t.id, t.name, t.leader_id
+       FROM teams t JOIN team_members tm ON tm.team_id = t.id
+       WHERE tm.student_id = ?`,
+      [req.user.id]
+    );
+    if (!teams.length) return res.json({ team: null });
+
+    const [members] = await pool.query(
+      `SELECT u.id, u.name, u.usn
+       FROM team_members tm JOIN users u ON u.id = tm.student_id
+       WHERE tm.team_id = ?`,
+      [teams[0].id]
+    );
+    res.json({ team: { ...teams[0], members } });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+module.exports = router;
