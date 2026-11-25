@@ -1,4 +1,5 @@
 require("dotenv").config();
+const { runReminders } = require("./routes/reminders");
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db");
@@ -21,9 +22,16 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 app.use("/api/deadlines", require("./routes/deadlines"));
 app.use("/api/submissions", require("./routes/submissions"));
 app.use("/api/feedback", require("./routes/feedback"));
 app.use("/api/notifications", require("./routes/notifications"));
+app.use("/api/meetings", require("./routes/meetings"));
+app.use("/api/reports", require("./routes/reports"));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  runReminders();
+  setInterval(runReminders, 60 * 60 * 1000); // then once an hour
+});
