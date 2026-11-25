@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const pool = require("./db");
 
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -28,6 +29,7 @@ app.use("/api/feedback", require("./routes/feedback"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/meetings", require("./routes/meetings"));
 app.use("/api/reports", require("./routes/reports"));
+app.use("/api/similarity", require("./routes/similarity"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
