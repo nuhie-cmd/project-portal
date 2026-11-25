@@ -90,14 +90,32 @@ CREATE TABLE meetings (
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+CREATE TABLE previous_projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_project_id VARCHAR(20),
+    title VARCHAR(200) NOT NULL,
+    domain VARCHAR(100),
+    project_type VARCHAR(100),
+    academic_year VARCHAR(30),
+    problem_statement TEXT,
+    objectives TEXT,
+    methodology TEXT,
+    technologies TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE similarity_results (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  project_id INT NOT NULL,
-  similar_project_id INT NOT NULL,
-  score DECIMAL(5,4) NOT NULL,
-  checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  FOREIGN KEY (similar_project_id) REFERENCES projects(id) ON DELETE CASCADE
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    previous_project_id INT NOT NULL,
+    score DECIMAL(5,4) NOT NULL,
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_id)
+        REFERENCES projects(id) ON DELETE CASCADE,
+
+    FOREIGN KEY (previous_project_id)
+        REFERENCES previous_projects(id) ON DELETE CASCADE
 );
 
 CREATE TABLE ai_reviews (
