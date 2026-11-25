@@ -1,0 +1,56 @@
+
+.proposal-page {
+  min-height: 100vh;
+  padding: 35px 15px;
+  background: linear-gradient(135deg, #4338ca, #7c3aed);
+  font-family: Arial, sans-serif;
+}
+
+.proposal-card {
+  max-width: 650px;
+  margin: auto;
+  padding: 35px;
+  background: white;
+  border-radius: 16px;
+}
+
+.proposal-card h1 {
+  text-align: center;
+  color: #4338ca;
+}
+
+.proposal-card p {
+  text-align: center;
+  color: #64748b;
+}
+
+.proposal-card label {
+  display: block;
+  margin: 15px 0 7px;
+  font-weight: bold;
+}
+
+.proposal-card input,
+.proposal-card textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-size: 15px;
+}
+
+.proposal-card textarea {
+  min-height: 90px;
+}
+
+.proposal-card button {
+  width: 100%;
+  padding: 13px;
+  margin-top: 20px;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
