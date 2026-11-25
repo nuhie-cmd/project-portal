@@ -42,8 +42,27 @@
 .status-box span {
   display: inline-block;
   padding: 8px 18px;
-  color: #92400e;
-  background: #fef3c7;
   border-radius: 20px;
   font-weight: bold;
+}
+
+.status-box span.status-pending {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.status-box span.status-approved {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.status-box span.status-rejected {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+@media (max-width: 500px) {
+  .status-card {
+    padding: 20px;
+  }
 }

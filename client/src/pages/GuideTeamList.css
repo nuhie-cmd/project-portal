@@ -43,4 +43,15 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
+}
+
+.guide-team button:hover {
+  background: #3730a3;
+}
+
+@media (max-width: 500px) {
+  .guide-list-card {
+    padding: 20px;
+  }
 }

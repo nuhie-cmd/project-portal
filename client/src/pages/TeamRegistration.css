@@ -33,13 +33,15 @@
   color: #334155;
 }
 
-.team-card input {
+.team-card input,
+.team-card select {
   width: 100%;
   padding: 12px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   box-sizing: border-box;
   font-size: 15px;
+  background: white;
 }
 
 .team-card h3 {
