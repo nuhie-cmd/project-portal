@@ -43,5 +43,27 @@ router.get("/pending-submissions", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
-
+// Dashboard cards for the coordinator
+router.get("/summary", async (req, res) => {
+  try {
+    const [[row]] = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM teams) AS total_teams,
+         (SELECT COUNT(*) FROM projects) AS total_projects,
+         (SELECT COUNT(*) FROM users WHERE role = 'student') AS total_students,
+         (SELECT COUNT(*) FROM users WHERE role = 'guide') AS total_guides,
+         (SELECT COUNT(*) FROM deadlines
+            WHERE DATEDIFF(due_date, CURDATE()) BETWEEN 0 AND 7) AS deadlines_in_7_days,
+         (SELECT COUNT(*) FROM deadlines
+            WHERE DATEDIFF(due_date, CURDATE()) < 0) AS overdue_deadlines,
+         (SELECT COUNT(*) FROM submissions) AS total_submissions,
+         (SELECT COUNT(*) FROM submissions s
+            WHERE NOT EXISTS (SELECT 1 FROM feedback f WHERE f.submission_id = s.id)
+         ) AS pending_reviews`
+    );
+    res.json(row);
+  } catch (e) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 module.exports = router;
