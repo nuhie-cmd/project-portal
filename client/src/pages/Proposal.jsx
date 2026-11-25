@@ -2,7 +2,7 @@ import { useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 
 const links = ["Dashboard", "My team", "Proposal", "Feedback", "Deadlines"];
-const THRESHOLD = 0.5;
+const THRESHOLD = 0.55;
 
 function Proposal() {
   const [title, setTitle] = useState("");
@@ -23,7 +23,7 @@ function Proposal() {
         body: JSON.stringify({ title, description }),
       });
       const data = await res.json();
-      setMatches(data.matches);
+      setMatches(data.matches.filter((m) => m.score >= THRESHOLD));
     } catch (err) {
       setError("Could not reach the similarity service. Is it running?");
     }
