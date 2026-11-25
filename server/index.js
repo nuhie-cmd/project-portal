@@ -10,7 +10,7 @@ app.use(express.json());
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/teams", require("./routes/teams"));
 app.use("/api/projects", require("./routes/projects"));
-app.use("/api/users", require("./routes/users"));
+app.use("/api/guide", require("./routes/guide"));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -22,6 +22,7 @@ app.get("/api/health", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
+app.use("/api/guide", require("./routes/guide"));
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 app.use("/api/deadlines", require("./routes/deadlines"));
 app.use("/api/submissions", require("./routes/submissions"));

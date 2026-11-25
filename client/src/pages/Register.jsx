@@ -6,9 +6,8 @@ function Register() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("student");
   const [usn, setUsn] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -16,16 +15,12 @@ function Register() {
     e.preventDefault();
     setError("");
 
-    if (name.trim().length < 2) {
-      setError("Please enter your full name (at least 2 characters).");
+    if (!name.trim() || !email.trim() || !usn.trim() || !password) {
+      setError("Name, email, USN and password are required.");
       return;
     }
-    if (!email.trim()) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
@@ -36,16 +31,15 @@ function Register() {
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
+          usn: usn.trim().toUpperCase(),
           password,
-          role,
-          usn: role === "student" && usn.trim() ? usn.trim() : null,
         }),
       });
 
       navigate("/", {
         state: {
           registeredEmail: email.trim(),
-          message: "Account created successfully! Please log in.",
+          message: "Student account registered successfully! Please log in.",
         },
       });
     } catch (err) {
@@ -57,7 +51,7 @@ function Register() {
 
   return (
     <div className="auth-card">
-      <h1>Register</h1>
+      <h1>Student Register</h1>
       {error && <div className="alert-box alert-error">{error}</div>}
       <form onSubmit={handleSubmit}>
         <input
@@ -75,29 +69,26 @@ function Register() {
           required
         />
         <input
+          type="text"
+          placeholder="USN (e.g. 4SF24CI001)"
+          value={usn}
+          onChange={(e) => setUsn(e.target.value)}
+          required
+        />
+        <input
           type="password"
-          placeholder="Password (min 6 characters)"
+          placeholder="Password (min 8 characters)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <select value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="student">Student</option>
-          <option value="guide">Guide</option>
-          <option value="coordinator">Coordinator</option>
-        </select>
-        {role === "student" && (
-          <input
-            type="text"
-            placeholder="USN (optional, e.g. 1MS23CS001)"
-            value={usn}
-            onChange={(e) => setUsn(e.target.value)}
-          />
-        )}
         <button type="submit" disabled={loading}>
           {loading ? "Registering..." : "Register"}
         </button>
       </form>
+      <p style={{ fontSize: "12px", color: "#64748b", marginTop: "12px" }}>
+        Guide and Coordinator accounts are provisioned by the Coordinator / seed data.
+      </p>
       <p>
         Already registered? <Link to="/">Login here</Link>
       </p>

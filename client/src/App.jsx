@@ -61,7 +61,7 @@ function App() {
       <Route
         path="/guide-teams"
         element={
-          <ProtectedRoute allowedRoles={["guide", "coordinator"]}>
+          <ProtectedRoute allowedRoles={["guide"]}>
             <GuideTeamList />
           </ProtectedRoute>
         }
@@ -75,7 +75,7 @@ function App() {
         }
       />
       <Route
-        path="/guide-review/:proposalId"
+        path="/guide-review/:projectId"
         element={
           <ProtectedRoute allowedRoles={["guide"]}>
             <GuideReview />
