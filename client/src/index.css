@@ -406,3 +406,39 @@ body {
   font-size: 13px;
   opacity: 0.85;
 }
+.sidebar-link {
+  display: block;
+  text-decoration: none;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.inline-form input {
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.inline-form button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-button {
+  border: none;
+  background: none;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+}

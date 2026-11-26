@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from similarity import find_similar
+from similarity import find_similar, recommend_guides, allocate_guides
 
 app = Flask(__name__)
 CORS(app)
@@ -27,6 +27,32 @@ def similar():
     matches = find_similar(title + ". " + description, projects)
     return jsonify({"matches": matches})
 
+SAMPLE_GUIDES = [
+    {"id": 1, "name": "Guide A",
+     "expertise": "machine learning, natural language processing, deep learning"},
+    {"id": 2, "name": "Guide B",
+     "expertise": "web development, databases, cloud computing"},
+    {"id": 3, "name": "Guide C",
+     "expertise": "computer networks, IoT, embedded systems, sensors"},
+]
+
+
+@app.route("/recommend-guide", methods=["POST"])
+def recommend_guide():
+    data = request.get_json()
+    text = data.get("title", "") + ". " + data.get("description", "")
+    guides = data.get("guides", SAMPLE_GUIDES)
+    return jsonify({"guides": recommend_guides(text, guides)})
+
+@app.route("/allocate", methods=["POST"])
+def allocate():
+    data = request.get_json()
+    result = allocate_guides(
+        data.get("teams", []),
+        data.get("guides", []),
+        max_teams=data.get("max_teams", 4),
+    )
+    return jsonify(result)
 
 if __name__ == "__main__":
     app.run(port=5001, debug=False)

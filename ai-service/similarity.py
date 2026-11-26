@@ -1,5 +1,4 @@
 from sentence_transformers import SentenceTransformer, util
-
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 
@@ -23,6 +22,65 @@ def find_similar(new_text, projects, top_k=3):
     results.sort(key=lambda r: r["score"], reverse=True)
     return results[:top_k]
 
+def recommend_guides(proposal_text, guides, top_k=3):
+    if not guides:
+        return []
+
+    texts = [g["name"] + ". " + g["expertise"] for g in guides]
+    proposal_embedding = model.encode(proposal_text, convert_to_tensor=True)
+    guide_embeddings = model.encode(texts, convert_to_tensor=True)
+    scores = util.cos_sim(proposal_embedding, guide_embeddings)[0]
+
+    results = []
+    for guide, score in zip(guides, scores):
+        results.append({
+            "id": guide["id"],
+            "name": guide["name"],
+            "score": round(float(score), 3),
+        })
+
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results[:top_k]
+
+def allocate_guides(teams, guides, max_teams=4, domain_bonus=0.3):
+    if not teams or not guides:
+        return {"allocations": [], "unassigned": [t["id"] for t in teams], "loads": {}}
+
+    team_texts = [t["title"] + ". " + t["description"] for t in teams]
+    guide_texts = [g["expertise"] for g in guides]
+    team_emb = model.encode(team_texts, convert_to_tensor=True)
+    guide_emb = model.encode(guide_texts, convert_to_tensor=True)
+    scores = util.cos_sim(team_emb, guide_emb)
+
+    pairs = []
+    for i, team in enumerate(teams):
+        for j, guide in enumerate(guides):
+            match = team.get("domain") in guide.get("domains", [])
+            total = float(scores[i][j]) + (domain_bonus if match else 0)
+            pairs.append((total, i, j, match))
+    pairs.sort(reverse=True)
+
+    loads = {g["id"]: g.get("current", 0) for g in guides}
+    assigned = {}
+    for total, i, j, match in pairs:
+        team, guide = teams[i], guides[j]
+        if team["id"] in assigned or loads[guide["id"]] >= max_teams:
+            continue
+        assigned[team["id"]] = {
+            "team_id": team["id"],
+            "guide_id": guide["id"],
+            "guide_name": guide["name"],
+            "score": round(total, 3),
+            "domain_match": match,
+        }
+        loads[guide["id"]] += 1
+
+    unassigned = [t["id"] for t in teams if t["id"] not in assigned]
+    return {
+        "allocations": list(assigned.values()),
+        "unassigned": unassigned,
+        "loads": loads,
+    }
 
 if __name__ == "__main__":
     sample_projects = [

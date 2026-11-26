@@ -1,13 +1,24 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { dummyUsers } from "../data/dummyData";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Login clicked for:", email);
+    const user = dummyUsers.find(
+      (u) => u.email === email.trim() && u.password === password
+    );
+    if (!user) {
+      setError("Incorrect email or password.");
+      return;
+    }
+    setError("");
+    navigate("/" + user.role);
   };
 
   return (
@@ -26,6 +37,7 @@ function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {error && <p className="auth-error">{error}</p>}
         <button type="submit">Login</button>
       </form>
       <p>
