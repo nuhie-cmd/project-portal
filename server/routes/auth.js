@@ -6,7 +6,6 @@ const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-// Students register themselves. Guides and coordinators come from the seed or the coordinator.
 router.post("/register", async (req, res) => {
   const { name, email, password, usn } = req.body;
   if (!name || !email || !password || !usn) {
@@ -23,7 +22,7 @@ router.post("/register", async (req, res) => {
     );
     res.status(201).json({ id: result.insertId, message: "Registered" });
   } catch (err) {
-    if (err.code === "ER_DUP_ENTRY") {
+    if (err.message && err.message.includes("UNIQUE")) {
       return res.status(409).json({ error: "Email already registered" });
     }
     res.status(500).json({ error: "Server error" });
@@ -43,7 +42,7 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "dev_secret",
       { expiresIn: "8h" }
     );
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });

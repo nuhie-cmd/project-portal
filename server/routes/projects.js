@@ -24,7 +24,7 @@ router.post("/", requireRole("student"), async (req, res) => {
     );
     res.status(201).json({ id: result.insertId });
   } catch (err) {
-    if (err.code === "ER_DUP_ENTRY") {
+    if (err.message && err.message.includes("UNIQUE")) {
       return res.status(409).json({ error: "Your team already has a project" });
     }
     res.status(500).json({ error: "Server error" });
@@ -91,7 +91,7 @@ router.put("/:id/guide", requireRole("coordinator"), async (req, res) => {
     await conn.beginTransaction();
 
     const [projects] = await conn.query(
-      "SELECT id, guide_id FROM projects WHERE id = ? FOR UPDATE",
+      "SELECT id, guide_id FROM projects WHERE id = ?",
       [projectId]
     );
     if (!projects.length) {
@@ -104,7 +104,7 @@ router.put("/:id/guide", requireRole("coordinator"), async (req, res) => {
     }
 
     const [guides] = await conn.query(
-      "SELECT max_teams FROM users WHERE id = ? AND role = 'guide' FOR UPDATE",
+      "SELECT max_teams FROM users WHERE id = ? AND role = 'guide'",
       [guideId]
     );
     if (!guides.length) {

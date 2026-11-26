@@ -11,7 +11,7 @@ router.get("/pending-submissions", async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT d.id AS deadline_id, d.title AS deadline_title, d.due_date,
-              DATEDIFF(d.due_date, CURDATE()) AS days_left,
+              CAST((julianday(d.due_date) - julianday(date('now'))) AS INTEGER) AS days_left,
               p.id AS project_id, p.title AS project_title, t.name AS team_name
        FROM deadlines d
        CROSS JOIN projects p
@@ -55,9 +55,9 @@ router.get("/summary", async (req, res) => {
          (SELECT COUNT(*) FROM users WHERE role = 'student') AS total_students,
          (SELECT COUNT(*) FROM users WHERE role = 'guide') AS total_guides,
          (SELECT COUNT(*) FROM deadlines
-            WHERE DATEDIFF(due_date, CURDATE()) BETWEEN 0 AND 7) AS deadlines_in_7_days,
+            WHERE CAST((julianday(due_date) - julianday(date('now'))) AS INTEGER) BETWEEN 0 AND 7) AS deadlines_in_7_days,
          (SELECT COUNT(*) FROM deadlines
-            WHERE DATEDIFF(due_date, CURDATE()) < 0) AS overdue_deadlines,
+            WHERE CAST((julianday(due_date) - julianday(date('now'))) AS INTEGER) < 0) AS overdue_deadlines,
          (SELECT COUNT(*) FROM submissions) AS total_submissions,
          (SELECT COUNT(*) FROM submissions s
             WHERE NOT EXISTS (SELECT 1 FROM feedback f WHERE f.submission_id = s.id)
@@ -69,7 +69,7 @@ router.get("/summary", async (req, res) => {
   }
 });
 
-// Coordinator: send reminders now (they also run automatically every hour)
+// Coordinator: send reminders now
 router.post("/send-reminders", async (req, res) => {
   const created = await runReminders();
   res.json({ created, message: `${created} reminder(s) created` });

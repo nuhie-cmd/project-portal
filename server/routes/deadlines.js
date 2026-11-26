@@ -5,9 +5,7 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 const router = express.Router();
 router.use(requireAuth);
 
-// Accepts "2026-12-01", "2026-12-01T17:00" or "2026-12-01 17:00:00"
-// and returns "YYYY-MM-DD HH:MM:SS" for MySQL, or null if invalid.
-function toMysqlDate(value) {
+function toSqliteDate(value) {
   if (!value) return null;
   const s = String(value).trim().replace("T", " ").replace(/Z$/, "").replace(/\.\d+$/, "");
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/);
@@ -33,10 +31,10 @@ router.get("/", async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT d.id, d.title, d.description, d.due_date, d.created_by,
-              DATEDIFF(d.due_date, NOW()) AS days_left,
+              CAST((julianday(d.due_date) - julianday(datetime('now'))) AS INTEGER) AS days_left,
               CASE
-                WHEN d.due_date < NOW() THEN 'overdue'
-                WHEN d.due_date < DATE_ADD(NOW(), INTERVAL 3 DAY) THEN 'due_soon'
+                WHEN d.due_date < datetime('now') THEN 'overdue'
+                WHEN d.due_date < datetime('now', '+3 days') THEN 'due_soon'
                 ELSE 'upcoming'
               END AS state,
               EXISTS(SELECT 1 FROM submissions s
@@ -57,7 +55,7 @@ router.post("/", requireRole("coordinator"), async (req, res) => {
   if (!title || !due_date) {
     return res.status(400).json({ error: "Title and due_date are required" });
   }
-  const due = toMysqlDate(due_date);
+  const due = toSqliteDate(due_date);
   if (!due) {
     return res.status(400).json({ error: "due_date must look like 2026-12-01 or 2026-12-01 17:00" });
   }
@@ -79,7 +77,7 @@ router.put("/:id", requireRole("coordinator"), async (req, res) => {
   if (!title || !due_date) {
     return res.status(400).json({ error: "Title and due_date are required" });
   }
-  const due = toMysqlDate(due_date);
+  const due = toSqliteDate(due_date);
   if (!due) return res.status(400).json({ error: "Invalid due_date" });
   try {
     const [result] = await pool.query(
@@ -93,14 +91,14 @@ router.put("/:id", requireRole("coordinator"), async (req, res) => {
   }
 });
 
-// Coordinator deletes a deadline (blocked if submissions exist)
+// Coordinator deletes a deadline
 router.delete("/:id", requireRole("coordinator"), async (req, res) => {
   try {
     const [result] = await pool.query("DELETE FROM deadlines WHERE id = ?", [Number(req.params.id)]);
     if (!result.affectedRows) return res.status(404).json({ error: "Deadline not found" });
     res.json({ message: "Deadline deleted" });
   } catch (err) {
-    if (err.code === "ER_ROW_IS_REFERENCED_2") {
+    if (err.message && err.message.includes("FOREIGN KEY")) {
       return res.status(409).json({ error: "Submissions already exist for this deadline" });
     }
     res.status(500).json({ error: "Server error" });

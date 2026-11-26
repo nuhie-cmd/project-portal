@@ -8,10 +8,12 @@ import GuideDashboard from "./pages/GuideDashboard";
 import CoordinatorDashboard from "./pages/CoordinatorDashboard";
 import Proposal from "./pages/Proposal";
 import CoordinatorAssign from "./pages/CoordinatorAssign";
+import CoordinatorSchedule from "./pages/CoordinatorSchedule";
 
 function App() {
   return (
     <Routes>
+      <Route path="/coordinator/schedule" element={<CoordinatorSchedule />} />
       <Route path="/coordinator/assign" element={<CoordinatorAssign />} />
       <Route path="/guide/deadlines" element={<GuideDeadlines />} />
       <Route path="/student/deadlines" element={<StudentDeadlines />} />

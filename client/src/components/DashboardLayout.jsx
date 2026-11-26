@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { getUser, logout } from "../api";
 
 const menus = {
   Student: [
@@ -19,15 +21,27 @@ const menus = {
 
 function DashboardLayout({ role = "", children }) {
   const navigate = useNavigate();
+  const user = getUser();
   const links = menus[role] || [];
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
     <div className="dashboard">
       <header className="topbar">
         <h2>Project Portal</h2>
         <div className="topbar-right">
-          <span>{role}</span>
-          <button onClick={() => navigate("/")}>Logout</button>
+          <span>{user ? `${user.name} (${role})` : role}</span>
+          <button onClick={handleLogout}>Logout</button>
         </div>
       </header>
       <div className="dashboard-body">

@@ -75,7 +75,7 @@ router.post("/:id/members", requireRole("student"), async (req, res) => {
     );
     res.status(201).json({ message: `${students[0].name} added to the team` });
   } catch (err) {
-    if (err.code === "ER_DUP_ENTRY") {
+    if (err.message && err.message.includes("UNIQUE")) {
       return res.status(409).json({ error: "That student is already in a team" });
     }
     res.status(500).json({ error: "Server error" });

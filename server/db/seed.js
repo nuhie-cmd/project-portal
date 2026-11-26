@@ -6,33 +6,30 @@ async function run() {
   try {
     const hash = await bcrypt.hash("Password@123", 10);
 
-    // wipe everything (local dev only!)
-    await conn.query("SET FOREIGN_KEY_CHECKS = 0");
+    await conn.query("PRAGMA foreign_keys = OFF");
     for (const t of [
       "notifications", "ai_reviews", "similarity_results", "meetings",
       "milestones", "feedback", "submissions", "deadlines", "projects",
       "team_members", "teams", "users",
     ]) {
-      await conn.query(`TRUNCATE TABLE ${t}`);
+      await conn.query(`DELETE FROM ${t}`);
     }
-    await conn.query("SET FOREIGN_KEY_CHECKS = 1");
+    await conn.query("DELETE FROM sqlite_sequence");
+    await conn.query("PRAGMA foreign_keys = ON");
 
-    // users: id 1 = coordinator, 2-4 = guides, 5-14 = students
+    // users: id 1-2 = coordinators, 3 = guide, 4-11 = students
     const users = [
-      [1, "Dr. Ramesh Iyer", "coord@college.test", "coordinator", null],
-      [2, "Dr. Suresh Kumar", "guide1@college.test", "guide", null],
-      [3, "Ms. Anitha Rao", "guide2@college.test", "guide", null],
-      [4, "Mr. Prakash Nayak", "guide3@college.test", "guide", null],
-      [5, "Aarav Shetty", "student1@college.test", "student", "4SF24CI001"],
-      [6, "Diya Rao", "student2@college.test", "student", "4SF24CI002"],
-      [7, "Rahul Naik", "student3@college.test", "student", "4SF24CI003"],
-      [8, "Sneha Pai", "student4@college.test", "student", "4SF24CI004"],
-      [9, "Karthik Bhat", "student5@college.test", "student", "4SF24CI005"],
-      [10, "Meera Kamath", "student6@college.test", "student", "4SF24CI006"],
-      [11, "Varun Hegde", "student7@college.test", "student", "4SF24CI007"],
-      [12, "Ananya Shenoy", "student8@college.test", "student", "4SF24CI008"],
-      [13, "Rohan D'Souza", "student9@college.test", "student", "4SF24CI009"],
-      [14, "Fatima Khan", "student10@college.test", "student", "4SF24CI010"],
+      [1, "Ms. Sreekshitha", "sreekshitha@college.test", "coordinator", null],
+      [2, "Ms. Shweta Naik", "shweta@college.test", "coordinator", null],
+      [3, "Ms. Deeksha", "deeksha@college.test", "guide", null],
+      [4, "Mirvaza Musthafa", "mirvaza@college.test", "student", "4SF24CI084"],
+      [5, "Nuha Fathima", "nuha@college.test", "student", "4SF24CI108"],
+      [6, "TB Abhishek", "abhishek@college.test", "student", "4SF24CI173"],
+      [7, "Gagana", "gagana@college.test", "student", "4SF24CI055"],
+      [8, "Mahek", "mahek@college.test", "student", "4SF24CI079"],
+      [9, "Nafiza", "nafiza@college.test", "student", "4SF24CI103"],
+      [10, "Anfaz", "anfaz@college.test", "student", "4SF24CI011"],
+      [11, "Keerthana", "keerthana@college.test", "student", "4SF24CI056"],
     ];
     for (const [id, name, email, role, usn] of users) {
       await conn.query(
@@ -43,30 +40,32 @@ async function run() {
 
     // teams (leaders are also inserted as members)
     await conn.query(
-      "INSERT INTO teams (id, name, leader_id) VALUES (1,'Team Alpha',5),(2,'Team Beta',8),(3,'Team Gamma',11)"
+      "INSERT INTO teams (id, name, leader_id) VALUES (1,'Team Alpha',4),(2,'Team Beta',8)"
     );
     await conn.query(
-      "INSERT INTO team_members (team_id, student_id) VALUES (1,5),(1,6),(1,7),(2,8),(2,9),(2,10),(3,11),(3,12)"
+      "INSERT INTO team_members (team_id, student_id) VALUES (1,4),(1,5),(1,6),(1,7),(2,8),(2,9),(2,10),(2,11)"
     );
 
-    // projects: team 3 has no guide yet
+    // projects: Team Alpha assigned to Ms. Deeksha (3), Team Beta unassigned
     await conn.query(
       `INSERT INTO projects (id, team_id, guide_id, title, description, objectives, scope, status) VALUES
-      (1,1,2,'Online Library Management System',
-       'A web application to manage book catalogues, issuing and returning of books by students.',
-       'Digitise book issue/return; track fines; search the catalogue.',
-       'Web app for one college library; no payment integration.','In Progress'),
-      (2,2,2,'Web-Based Book Borrowing Portal',
-       'A portal where students can search for books, borrow them and return them online.',
-       'Let students reserve books; notify on due dates; manage returns.',
-       'Single campus library; browser only.','Approved'),
-      (3,3,NULL,'Crop Disease Detection Using Leaf Images',
+      (1,1,3,'Smart Student-Faculty Project Coordination and Monitoring System',
+       'A web-based application to streamline academic mini-project management with AI similarity detection.',
+       'Simplify project registration, guide allocation, milestone tracking and similarity checks.',
+       'Department mini-project portal for students, guides and coordinators.','In Progress'),
+      (2,2,NULL,'Crop Disease Detection Using Leaf Images',
        'A model that identifies common crop diseases from photos of leaves.',
        'Classify at least 5 diseases; show treatment suggestions.',
        'Image classification using a public dataset; no mobile app.','Pending')`
     );
 
-    // deadlines: -3 days (overdue), +2 (soon), +14, +30
+    // deadlines
+    const now = new Date();
+    const daysFrom = (d) => {
+      const x = new Date(now);
+      x.setDate(x.getDate() + d);
+      return x.toISOString().slice(0, 19).replace("T", " ");
+    };
     const dl = [
       ["Project Proposal", "Submit title, problem statement and objectives", -3],
       ["Review 1 Presentation", "Mid-point progress presentation", 2],
@@ -75,25 +74,26 @@ async function run() {
     ];
     for (const [title, desc, days] of dl) {
       await conn.query(
-        "INSERT INTO deadlines (title, description, due_date, created_by) VALUES (?,?,DATE_ADD(NOW(), INTERVAL ? DAY),1)",
-        [title, desc, days]
+        "INSERT INTO deadlines (title, description, due_date, created_by) VALUES (?,?,?,1)",
+        [title, desc, daysFrom(days)]
       );
     }
 
     await conn.query(
-      "INSERT INTO submissions (project_id, deadline_id, file_path) VALUES (1,1,'uploads/sample_proposal_1.pdf'),(2,1,'uploads/sample_proposal_2.pdf')"
+      "INSERT INTO submissions (project_id, deadline_id, file_path) VALUES (1,1,'uploads/sample_proposal_1.pdf')"
     );
     await conn.query(
-      "INSERT INTO feedback (submission_id, guide_id, comments) VALUES (1,2,'Good start. Make the objectives measurable and narrow the scope.')"
+      "INSERT INTO feedback (submission_id, guide_id, comments) VALUES (1,3,'Good start. Make the objectives measurable and narrow the scope.')"
     );
     await conn.query(
       "INSERT INTO milestones (project_id, title, status) VALUES (1,'Requirement analysis','Done'),(1,'Database design','In Progress'),(1,'Frontend development','Not Started'),(2,'Requirement analysis','In Progress')"
     );
     await conn.query(
-      "INSERT INTO meetings (project_id, scheduled_at, agenda, status) VALUES (1, DATE_ADD(NOW(), INTERVAL 3 DAY), 'Review database design', 'Scheduled')"
+      "INSERT INTO meetings (project_id, scheduled_at, agenda, status) VALUES (1, ?, 'Review database design', 'Scheduled')",
+      [daysFrom(3)]
     );
     await conn.query(
-      "INSERT INTO notifications (user_id, message) VALUES (5,'Review 1 Presentation is due in 2 days'),(2,'New submission from Team Alpha')"
+      "INSERT INTO notifications (user_id, message) VALUES (4,'Review 1 Presentation is due in 2 days'),(3,'New submission from Team Alpha')"
     );
 
     console.log("Seed complete. Login password for all accounts: Password@123");

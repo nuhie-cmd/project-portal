@@ -1,23 +1,63 @@
+import os
+import sqlite3
 from sentence_transformers import SentenceTransformer, util
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+try:
+    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", local_files_only=True)
+except Exception:
+    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "server", "data.sqlite"))
 
 
-def find_similar(new_text, projects, top_k=3):
+def get_previous_projects():
+    """Fetch previous projects from the previous_projects table in the database."""
+    if not os.path.exists(DB_PATH):
+        return []
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """SELECT id, title,
+                      TRIM(COALESCE(problem_statement, '') || ' ' || COALESCE(objectives, '')) AS description
+               FROM previous_projects"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def find_similar(new_text, projects, top_k=3, min_score=0.45, new_title=None):
     if not projects:
         return []
 
-    texts = [p["title"] + ". " + p["description"] for p in projects]
+    texts = [p["title"] + ". " + (p.get("description") or "") for p in projects]
     new_embedding = model.encode(new_text, convert_to_tensor=True)
     embeddings = model.encode(texts, convert_to_tensor=True)
-    scores = util.cos_sim(new_embedding, embeddings)[0]
+    full_scores = util.cos_sim(new_embedding, embeddings)[0]
+
+    title_scores = None
+    norm_new_title = (new_title or "").strip().lower()
+    if norm_new_title:
+        titles = [p["title"] for p in projects]
+        t_new = model.encode(new_title.strip(), convert_to_tensor=True)
+        t_emb = model.encode(titles, convert_to_tensor=True)
+        title_scores = util.cos_sim(t_new, t_emb)[0]
 
     results = []
-    for project, score in zip(projects, scores):
-        results.append({
-            "id": project["id"],
-            "title": project["title"],
-            "score": round(float(score), 3),
-        })
+    for idx, (project, full_score) in enumerate(zip(projects, full_scores)):
+        score = float(full_score)
+        if title_scores is not None:
+            t_score = float(title_scores[idx])
+            if norm_new_title == project["title"].strip().lower():
+                t_score = 1.0
+            score = max(score, t_score)
+        score = round(min(score, 1.0), 3)
+        if score >= min_score:
+            results.append({
+                "id": project["id"],
+                "title": project["title"],
+                "score": score,
+            })
 
     results.sort(key=lambda r: r["score"], reverse=True)
     return results[:top_k]
@@ -83,16 +123,7 @@ def allocate_guides(teams, guides, max_teams=4, domain_bonus=0.3):
     }
 
 if __name__ == "__main__":
-    sample_projects = [
-        {"id": 1, "title": "Forecasting leftover meals in university cafeterias",
-         "description": "Predict how much food will be left over each day using past data."},
-        {"id": 2, "title": "Attendance using face recognition",
-         "description": "Mark student attendance automatically from classroom camera images."},
-        {"id": 3, "title": "Library book recommendation system",
-         "description": "Recommend books to students based on their borrowing history."},
-        {"id": 4, "title": "Campus bus tracking app",
-         "description": "Show live location of college buses on a map."},
-    ]
+    sample_projects = get_previous_projects()
 
     new_proposal = "Predicting food wastage in college canteens. Estimate daily surplus food."
 

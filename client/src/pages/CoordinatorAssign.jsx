@@ -1,165 +1,155 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
+import { api } from "../api";
 
 const MAX_TEAMS = 4;
 
-const guides = [
-  { id: 1, name: "Guide A", domains: ["NLP", "ML"],
-    expertise: "natural language processing, machine learning, deep learning" },
-  { id: 2, name: "Guide B", domains: ["Web", "Data"],
-    expertise: "web development, databases, cloud computing" },
-  { id: 3, name: "Guide C", domains: ["IoT", "Networks", "CV"],
-    expertise: "computer vision, IoT, embedded systems, sensors, networks" },
-];
-
-const teams = [
-  { id: 1, name: "Team 1", domain: "NLP", title: "Sentiment analysis of feedback",
-    description: "Classify course feedback using NLP." },
-  { id: 2, name: "Team 2", domain: "NLP", title: "Chatbot for college queries",
-    description: "Answer student questions using language models." },
-  { id: 3, name: "Team 3", domain: "NLP", title: "Fake news detection",
-    description: "Classify news text as real or fake." },
-  { id: 4, name: "Team 4", domain: "NLP", title: "Resume screening",
-    description: "Rank resumes against job descriptions using text embeddings." },
-  { id: 5, name: "Team 5", domain: "NLP", title: "Text summarizer",
-    description: "Summarize long documents using transformers." },
-  { id: 6, name: "Team 6", domain: "IoT", title: "Smart parking",
-    description: "Detect free parking spots with sensors." },
-  { id: 7, name: "Team 7", domain: "Web", title: "Event portal",
-    description: "Web app with a database for event registration." },
-];
-
 function CoordinatorAssign() {
-  const [allocation, setAllocation] = useState({});
+  const [projects, setProjects] = useState([]);
+  const [guides, setGuides] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
 
-  const loads = {};
-  guides.forEach((g) => (loads[g.id] = 0));
-  Object.values(allocation).forEach((a) => {
-    loads[a.guide_id] += 1;
-  });
+  const loadAll = async () => {
+    try {
+      const [pRes, gRes] = await Promise.all([
+        api("/projects"),
+        api("/users/guides"),
+      ]);
+      setProjects(pRes.projects || []);
+      setGuides(gRes.guides || []);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const changeGuide = async (projectId, guideId) => {
+    if (!guideId) return;
+    setError("");
+    setMsg("");
+    try {
+      const res = await api(`/projects/${projectId}/guide`, {
+        method: "PUT",
+        body: { guideId: Number(guideId) },
+      });
+      setMsg(res.message);
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   const autoAllocate = async () => {
     setLoading(true);
     setError("");
+    setMsg("");
     try {
+      const unassigned = projects.filter((p) => !p.guide_id);
+      if (unassigned.length === 0) {
+        setMsg("All projects already have a guide assigned.");
+        setLoading(false);
+        return;
+      }
       const res = await fetch("http://localhost:5001/allocate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teams, guides, max_teams: MAX_TEAMS }),
+        body: JSON.stringify({
+          teams: unassigned.map((p) => ({
+            id: p.id,
+            name: p.team_name,
+            title: p.title,
+            description: p.title,
+          })),
+          guides: guides.map((g) => ({
+            id: g.id,
+            name: g.name,
+            expertise: "software engineering, machine learning, web development",
+          })),
+          max_teams: MAX_TEAMS,
+        }),
       });
       const data = await res.json();
-      const next = {};
-      data.allocations.forEach((a) => {
-        next[a.team_id] = a;
-      });
-      setAllocation(next);
-    } catch (err) {
-      setError("Could not reach the AI service. Is it running?");
-    }
-    setLoading(false);
-  };
-
-  const changeGuide = (team, guideId) => {
-    setAllocation((prev) => {
-      const next = { ...prev };
-      if (!guideId) {
-        delete next[team.id];
-        return next;
+      for (const a of data.allocations || []) {
+        await api(`/projects/${a.team_id}/guide`, {
+          method: "PUT",
+          body: { guideId: a.guide_id },
+        });
       }
-      const guide = guides.find((g) => g.id === Number(guideId));
-      next[team.id] = {
-        team_id: team.id,
-        guide_id: guide.id,
-        guide_name: guide.name,
-        score: null,
-        domain_match: guide.domains.includes(team.domain),
-      };
-      return next;
-    });
+      setMsg("AI allocation applied.");
+      loadAll();
+    } catch (err) {
+      setError("Could not reach the AI service or save allocation.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <DashboardLayout role="Coordinator">
       <h2>Assign guides</h2>
+      {error && <div className="alert alert-warning" style={{ marginBottom: 16 }}>{error}</div>}
+      {msg && <div className="alert alert-ok" style={{ marginBottom: 16 }}>{msg}</div>}
 
       <div className="stat-grid">
         {guides.map((g) => (
           <div className="stat-card" key={g.id}>
             <div className="stat-number">
-              {loads[g.id]}/{MAX_TEAMS}
+              {g.allocated}/{g.max_teams}
             </div>
-            <div className="stat-label">
-              {g.name} ({g.domains.join(", ")})
-            </div>
+            <div className="stat-label">{g.name}</div>
           </div>
         ))}
       </div>
 
       <div className="inline-form">
         <button onClick={autoAllocate} disabled={loading}>
-          {loading ? "Allocating..." : "Auto-allocate with AI"}
+          {loading ? "Allocating..." : "Auto-allocate Unassigned with AI"}
         </button>
       </div>
-
-      {error && <div className="alert alert-warning">{error}</div>}
 
       <table className="data-table">
         <thead>
           <tr>
             <th>Team</th>
             <th>Project</th>
-            <th>Domain</th>
-            <th>Guide</th>
-            <th>Fit</th>
+            <th>Members</th>
+            <th>Status</th>
+            <th>Assigned Guide</th>
           </tr>
         </thead>
         <tbody>
-          {teams.map((team) => {
-            const a = allocation[team.id];
-            return (
-              <tr key={team.id}>
-                <td>{team.name}</td>
-                <td>{team.title}</td>
-                <td>{team.domain}</td>
-                <td>
-                  <select
-                    value={a ? a.guide_id : ""}
-                    onChange={(e) => changeGuide(team, e.target.value)}
-                  >
-                    <option value="">Unassigned</option>
-                    {guides.map((g) => (
-                      <option
-                        key={g.id}
-                        value={g.id}
-                        disabled={
-                          loads[g.id] >= MAX_TEAMS && !(a && a.guide_id === g.id)
-                        }
-                      >
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  {a &&
-                    (a.domain_match ? (
-                      <span className="status-badge">Domain match</span>
-                    ) : (
-                      <span className="status-badge waiting">Low fit, review</span>
-                    ))}
-                </td>
-              </tr>
-            );
-          })}
+          {projects.map((p) => (
+            <tr key={p.id}>
+              <td>{p.team_name}</td>
+              <td>{p.title}</td>
+              <td>{p.member_count}</td>
+              <td>{p.status}</td>
+              <td>
+                <select
+                  value={p.guide_id || ""}
+                  onChange={(e) => changeGuide(p.id, e.target.value)}
+                >
+                  <option value="">Unassigned</option>
+                  {guides.map((g) => (
+                    <option
+                      key={g.id}
+                      value={g.id}
+                      disabled={g.allocated >= g.max_teams && p.guide_id !== g.id}
+                    >
+                      {g.name} ({g.allocated}/{g.max_teams})
+                    </option>
+                  ))}
+                </select>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
-
-      <p>
-        The AI proposes an allocation using domain match and semantic similarity,
-        with at most {MAX_TEAMS} teams per guide. The coordinator can override it.
-      </p>
     </DashboardLayout>
   );
 }

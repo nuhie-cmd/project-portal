@@ -1,39 +1,77 @@
+import { useEffect, useState } from "react";
 import DashboardLayout from "../components/DashboardLayout";
-import { useSchedule } from "../context/DeadlinesContext";
-import { STUDENT_TEAM_ID } from "../data/demoTeams";
+import { api } from "../api";
 
 function StudentDeadlines() {
-  const { events } = useSchedule();
+  const [deadlines, setDeadlines] = useState([]);
+  const [meetings, setMeetings] = useState([]);
+  const [error, setError] = useState("");
 
-  const mine = events
-    .filter((e) => e.teamId === "all" || e.teamId === STUDENT_TEAM_ID)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  useEffect(() => {
+    Promise.all([api("/deadlines"), api("/meetings/mine")])
+      .then(([d, m]) => {
+        setDeadlines(d.deadlines || []);
+        setMeetings(m.meetings || []);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
 
   return (
     <DashboardLayout role="Student">
-      <h2>Schedule</h2>
-      <table className="data-table">
+      <h2>Schedule &amp; Deadlines</h2>
+      {error && <div className="alert alert-warning">{error}</div>}
+
+      <h3>Deadlines</h3>
+      <table className="data-table" style={{ marginBottom: 28 }}>
         <thead>
           <tr>
-            <th>Type</th>
             <th>Title</th>
-            <th>Date</th>
-            <th>Set by</th>
+            <th>Description</th>
+            <th>Due Date</th>
+            <th>State</th>
+            <th>Submitted</th>
           </tr>
         </thead>
         <tbody>
-          {mine.map((e) => (
-            <tr key={e.id}>
+          {deadlines.map((d) => (
+            <tr key={d.id}>
+              <td>{d.title}</td>
+              <td>{d.description || "-"}</td>
+              <td>{d.due_date}</td>
               <td>
-                <span className={e.type === "Deadline" ? "status-badge waiting" : "status-badge"}>
-                  {e.type}
+                <span className={d.state === "overdue" || d.state === "due_soon" ? "status-badge waiting" : "status-badge"}>
+                  {d.state}
                 </span>
               </td>
-              <td>{e.title}</td>
-              <td>{e.date}</td>
-              <td>{e.by}</td>
+              <td>{d.submitted ? "Yes" : "No"}</td>
             </tr>
           ))}
+        </tbody>
+      </table>
+
+      <h3>My Team Meetings</h3>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Date &amp; Time</th>
+            <th>Agenda</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {meetings.length === 0 ? (
+            <tr><td colSpan="4">No meetings scheduled.</td></tr>
+          ) : (
+            meetings.map((m) => (
+              <tr key={m.id}>
+                <td>{m.scheduled_at}</td>
+                <td>{m.agenda || "-"}</td>
+                <td>{m.status}</td>
+                <td>{m.notes || "-"}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </DashboardLayout>

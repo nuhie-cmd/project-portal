@@ -1,20 +1,9 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from similarity import find_similar, recommend_guides, allocate_guides
+from similarity import find_similar, recommend_guides, allocate_guides, get_previous_projects
 
 app = Flask(__name__)
 CORS(app)
-
-SAMPLE_PROJECTS = [
-    {"id": 1, "title": "Forecasting leftover meals in university cafeterias",
-     "description": "Predict how much food will be left over each day using past data."},
-    {"id": 2, "title": "Attendance using face recognition",
-     "description": "Mark student attendance automatically from classroom camera images."},
-    {"id": 3, "title": "Library book recommendation system",
-     "description": "Recommend books to students based on their borrowing history."},
-    {"id": 4, "title": "Campus bus tracking app",
-     "description": "Show live location of college buses on a map."},
-]
 
 
 @app.route("/similar", methods=["POST"])
@@ -22,9 +11,11 @@ def similar():
     data = request.get_json()
     title = data.get("title", "")
     description = data.get("description", "")
-    projects = data.get("projects", SAMPLE_PROJECTS)
+    projects = data.get("projects")
+    if not projects:
+        projects = get_previous_projects()
 
-    matches = find_similar(title + ". " + description, projects)
+    matches = find_similar(title + ". " + description, projects, min_score=0.45, new_title=title)
     return jsonify({"matches": matches})
 
 SAMPLE_GUIDES = [
