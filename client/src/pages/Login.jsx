@@ -1,13 +1,28 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
+const demoUsers = [
+  { email: "student@demo.com", password: "demo123", path: "/student" },
+  { email: "guide@demo.com", password: "demo123", path: "/guide" },
+  { email: "coordinator@demo.com", password: "demo123", path: "/coordinator" },
+];
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Login clicked for:", email);
+    const user = demoUsers.find(
+      (u) => u.email === email && u.password === password
+    );
+    if (user) {
+      navigate(user.path);
+    } else {
+      setError("Invalid email or password.");
+    }
   };
 
   return (
@@ -28,6 +43,7 @@ function Login() {
         />
         <button type="submit">Login</button>
       </form>
+      {error && <p style={{ color: "#dc2626" }}>{error}</p>}
       <p>
         New team? <Link to="/register">Register here</Link>
       </p>

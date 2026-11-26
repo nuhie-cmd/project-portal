@@ -58,3 +58,9 @@ export const teamProject = {
   members: ["Mirvaza", "Nuha"],
   status: "Approved",
 };
+
+export const dummyUsers = [
+  { email: "student@test.com", password: "student123", role: "student" },
+  { email: "guide@test.com", password: "guide123", role: "guide" },
+  { email: "coordinator@test.com", password: "coord123", role: "coordinator" },
+];
