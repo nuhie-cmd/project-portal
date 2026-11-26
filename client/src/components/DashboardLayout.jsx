@@ -4,15 +4,16 @@ const menus = {
   Student: [
     { label: "Dashboard", path: "/student" },
     { label: "Proposal", path: "/proposal" },
-    { label: "Deadlines", path: "/student/deadlines" },
+    { label: "Schedule", path: "/student/deadlines" },
   ],
   Guide: [
     { label: "Dashboard", path: "/guide" },
-    { label: "Deadlines", path: "/guide/deadlines" },
+    { label: "Schedule", path: "/guide/deadlines" },
   ],
-    Coordinator: [
+  Coordinator: [
     { label: "Dashboard", path: "/coordinator" },
     { label: "Assign guide", path: "/coordinator/assign" },
+    { label: "Schedule", path: "/coordinator/schedule" },
   ],
 };
 

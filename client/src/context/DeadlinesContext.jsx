@@ -1,24 +1,24 @@
 import { createContext, useContext, useState } from "react";
 
-const DeadlinesContext = createContext();
+const ScheduleContext = createContext();
 
 export function DeadlinesProvider({ children }) {
-  const [deadlines, setDeadlines] = useState([
-    { id: 1, milestone: "Synopsis submission", dueDate: "2026-12-05" },
-    { id: 2, milestone: "Review 1", dueDate: "2026-12-20" },
+  const [events, setEvents] = useState([
+    { id: 1, type: "Deadline", title: "Synopsis submission", date: "2026-12-05", teamId: "all", by: "Coordinator" },
+    { id: 2, type: "Presentation", title: "Review 1 presentation", date: "2026-12-20", teamId: 1, by: "Guide" },
   ]);
 
-  const addDeadline = (d) =>
-    setDeadlines((prev) => [...prev, { ...d, id: Date.now() }]);
+  const addEvent = (e) =>
+    setEvents((prev) => [...prev, { ...e, id: Date.now() }]);
 
-  const removeDeadline = (id) =>
-    setDeadlines((prev) => prev.filter((d) => d.id !== id));
+  const removeEvent = (id) =>
+    setEvents((prev) => prev.filter((e) => e.id !== id));
 
   return (
-    <DeadlinesContext.Provider value={{ deadlines, addDeadline, removeDeadline }}>
+    <ScheduleContext.Provider value={{ events, addEvent, removeEvent }}>
       {children}
-    </DeadlinesContext.Provider>
+    </ScheduleContext.Provider>
   );
 }
 
-export const useDeadlines = () => useContext(DeadlinesContext);
+export const useSchedule = () => useContext(ScheduleContext);

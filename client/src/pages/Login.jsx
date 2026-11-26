@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { dummyUsers } from "../data/dummyData";
+
+const demoUsers = [
+  { email: "student@demo.com", password: "demo123", path: "/student" },
+  { email: "guide@demo.com", password: "demo123", path: "/guide" },
+  { email: "coordinator@demo.com", password: "demo123", path: "/coordinator" },
+];
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -10,15 +15,14 @@ function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const user = dummyUsers.find(
-      (u) => u.email === email.trim() && u.password === password
+    const user = demoUsers.find(
+      (u) => u.email === email && u.password === password
     );
-    if (!user) {
-      setError("Incorrect email or password.");
-      return;
+    if (user) {
+      navigate(user.path);
+    } else {
+      setError("Invalid email or password.");
     }
-    setError("");
-    navigate("/" + user.role);
   };
 
   return (
@@ -37,9 +41,9 @@ function Login() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <p className="auth-error">{error}</p>}
         <button type="submit">Login</button>
       </form>
+      {error && <p style={{ color: "#dc2626" }}>{error}</p>}
       <p>
         New team? <Link to="/register">Register here</Link>
       </p>

@@ -1,27 +1,37 @@
 import DashboardLayout from "../components/DashboardLayout";
-import { useDeadlines } from "../context/DeadlinesContext";
+import { useSchedule } from "../context/DeadlinesContext";
+import { STUDENT_TEAM_ID } from "../data/demoTeams";
 
 function StudentDeadlines() {
-  const { deadlines } = useDeadlines();
-  const sorted = [...deadlines].sort((a, b) =>
-    a.dueDate.localeCompare(b.dueDate)
-  );
+  const { events } = useSchedule();
+
+  const mine = events
+    .filter((e) => e.teamId === "all" || e.teamId === STUDENT_TEAM_ID)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <DashboardLayout role="Student">
-      <h2>Deadlines</h2>
+      <h2>Schedule</h2>
       <table className="data-table">
         <thead>
           <tr>
-            <th>Milestone</th>
-            <th>Due date</th>
+            <th>Type</th>
+            <th>Title</th>
+            <th>Date</th>
+            <th>Set by</th>
           </tr>
         </thead>
         <tbody>
-          {sorted.map((d) => (
-            <tr key={d.id}>
-              <td>{d.milestone}</td>
-              <td>{d.dueDate}</td>
+          {mine.map((e) => (
+            <tr key={e.id}>
+              <td>
+                <span className={e.type === "Deadline" ? "status-badge waiting" : "status-badge"}>
+                  {e.type}
+                </span>
+              </td>
+              <td>{e.title}</td>
+              <td>{e.date}</td>
+              <td>{e.by}</td>
             </tr>
           ))}
         </tbody>

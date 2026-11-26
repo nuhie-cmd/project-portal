@@ -442,3 +442,14 @@ body {
   font-weight: 600;
   cursor: pointer;
 }
+.status-badge.presentation {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.inline-form select {
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 15px;
+}
