@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { runReminders } = require("./routes/reminders");
+const { runReminders } = require("./reminders");
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db");

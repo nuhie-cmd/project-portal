@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const { runReminders } = require("../reminders");
 
 const router = express.Router();
 router.use(requireAuth, requireRole("coordinator"));
@@ -43,6 +44,7 @@ router.get("/pending-submissions", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 // Dashboard cards for the coordinator
 router.get("/summary", async (req, res) => {
   try {
@@ -66,4 +68,11 @@ router.get("/summary", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// Coordinator: send reminders now (they also run automatically every hour)
+router.post("/send-reminders", async (req, res) => {
+  const created = await runReminders();
+  res.json({ created, message: `${created} reminder(s) created` });
+});
+
 module.exports = router;
